@@ -6,5 +6,5 @@ namespace KakaoBotAT.MobileClient;
 
 internal static class Constants
 {
-    internal const string ServerEndpointUrl = "https://your-server-url.com/api/kakao";
+    internal const string ServerEndpointUrl = "https://dogebot.kagamine-rin.com/api/kakao";
 }
