@@ -5,6 +5,7 @@ namespace KakaoBotAT.Server.Services;
 
 public class MigrationService : IMigrationService
 {
+    private readonly IMongoDatabase _database;
     private readonly IMongoCollection<MigrationRecord> _migrations;
     private readonly IMongoCollection<MessageContent> _messageContents;
     private readonly IMongoCollection<WordContent> _wordContents;
@@ -12,9 +13,10 @@ public class MigrationService : IMigrationService
 
     public MigrationService(IMongoDbService mongoDbService, ILogger<MigrationService> logger)
     {
-        _migrations = mongoDbService.Database.GetCollection<MigrationRecord>("migrations");
-        _messageContents = mongoDbService.Database.GetCollection<MessageContent>("messageContents");
-        _wordContents = mongoDbService.Database.GetCollection<WordContent>("wordContents");
+        _database = mongoDbService.Database;
+        _migrations = _database.GetCollection<MigrationRecord>("migrations");
+        _messageContents = _database.GetCollection<MessageContent>("messageContents");
+        _wordContents = _database.GetCollection<WordContent>("wordContents");
         _logger = logger;
 
         // Ensure unique index on version
@@ -27,6 +29,7 @@ public class MigrationService : IMigrationService
     {
         await ApplyMigrationAsync(1, "SplitMessageContentsToWords", MigrateMessageContentsToWordsAsync);
         await ApplyMigrationAsync(2, "NormalizeKoreanConsonantWords", NormalizeKoreanConsonantWordsAsync);
+        await ApplyMigrationAsync(3, "ManualSenderHashMappings", InsertManualSenderHashMappingsAsync);
     }
 
     private async Task ApplyMigrationAsync(int version, string name, Func<Task> migration)
@@ -176,6 +179,59 @@ public class MigrationService : IMigrationService
         if (IsRepeatedKoreanConsonant(word))
             return new string(word[0], 3);
         return word;
+    }
+
+    /// <summary>
+    /// v3: Manually insert RoomMigrationMapping records for users with duplicate senderHash
+    /// in room 463056569657145. The hash with higher message count is the old room hash.
+    /// </summary>
+    private async Task InsertManualSenderHashMappingsAsync()
+    {
+        const string targetRoomId = "463056569657145";
+        var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+        var mappings = new List<RoomMigrationMapping>
+        {
+            new() { TargetRoomId = targetRoomId, SenderName = "조기산", OldSenderHash = "a2e941bb4a9b61816ae616803d633cedd07940fc576b2e9953abe1c8d3fc5e5a", CreatedAt = now },
+            new() { TargetRoomId = targetRoomId, SenderName = "ㅎㅂ 👮‍♂️", OldSenderHash = "65ff2338ab17f740e72b6a20267f9ad0f5a995e4719e780ceaeff369a6a05668", CreatedAt = now },
+            new() { TargetRoomId = targetRoomId, SenderName = "강보성", OldSenderHash = "b1fb8bfc7c180348e2bd55763c534123a82e97c71b1245800ce3cecfbe25c66e", CreatedAt = now },
+            new() { TargetRoomId = targetRoomId, SenderName = "작전과장", OldSenderHash = "874ae5a690c03ec538370006580e1de98a9664c2c50c6a2794a85f0d2dfd1f82", CreatedAt = now },
+            new() { TargetRoomId = targetRoomId, SenderName = "니조랄 아옮옮옮", OldSenderHash = "b8a45d25f7b48b9dae58f7234d46bf1d4e6781bb101d68ca2e2f6a408db92136", CreatedAt = now },
+            new() { TargetRoomId = targetRoomId, SenderName = "조민석", OldSenderHash = "b2ce10e5d04cede96346b03d46b250b0577c4b44a44121935d38da1c4bb3c65a", CreatedAt = now },
+            new() { TargetRoomId = targetRoomId, SenderName = "서", OldSenderHash = "97df0dd6c0f590793e7aa22832a9066afe88d24c246f8ccf19a09a42fe4535f5", CreatedAt = now },
+            new() { TargetRoomId = targetRoomId, SenderName = "잼민상", OldSenderHash = "9a126180dc6b9bc7c3c6be4229f0d23cc93a9f23975211acfd50169b0863abbe", CreatedAt = now },
+            new() { TargetRoomId = targetRoomId, SenderName = "박현우", OldSenderHash = "702d176ff4c7af6b32af4449b4e42856d9b21dc7df0b7b077e12d113d080a604", CreatedAt = now },
+            new() { TargetRoomId = targetRoomId, SenderName = "이호원", OldSenderHash = "e0301c38bb0443a26aa2133d3c888c912dd4fb425c4d424d8871aba7013f06fe", CreatedAt = now },
+            new() { TargetRoomId = targetRoomId, SenderName = "양인진", OldSenderHash = "b9e2adb4b904951a76f6f71bb7147952df5a26da02df69d8929e355101ad9ff6", CreatedAt = now },
+            new() { TargetRoomId = targetRoomId, SenderName = "이진우", OldSenderHash = "3753d900a057f5b7691d9ddc7ef1d237fc69616fee271ebef0bd26bbd493e9f5", CreatedAt = now },
+            new() { TargetRoomId = targetRoomId, SenderName = "강관형(K.Shephard)", OldSenderHash = "746469515926a46ca87cc7cc75e9bd9fa3205fdc727cbe4d5786aa2154ddb599", CreatedAt = now },
+            new() { TargetRoomId = targetRoomId, SenderName = "토루", OldSenderHash = "4c99749dc958e64d3fc16612da6d6e961f032b6917c7e71bc4bee129b4614278", CreatedAt = now },
+            new() { TargetRoomId = targetRoomId, SenderName = "ms sung", OldSenderHash = "72801b523e07b68a7eabf66734aa91d47f1b6d27a0aa1fca8385c96108bb39ed", CreatedAt = now },
+            new() { TargetRoomId = targetRoomId, SenderName = "日本第一歌手皇太子安倍晋三", OldSenderHash = "a5f9422ebc493740c56c69e791ce6f319b40010d0b2a33390a636eb25c62b429", CreatedAt = now },
+            new() { TargetRoomId = targetRoomId, SenderName = "버붕이", OldSenderHash = "9011ed40305ebb2adacf47dc16517d89aac1908e93dea1f3cc3fd128a4d866a1", CreatedAt = now },
+            new() { TargetRoomId = targetRoomId, SenderName = "開拓者", OldSenderHash = "ec07e77289d0df0b7bfbd689fb7564e80a7eefd503cd8cedafd17f6515841f20", CreatedAt = now },
+        };
+
+        var migrationMappings = _database.GetCollection<RoomMigrationMapping>("roomMigrationMappings");
+
+        foreach (var mapping in mappings)
+        {
+            var existingFilter = Builders<RoomMigrationMapping>.Filter.And(
+                Builders<RoomMigrationMapping>.Filter.Eq(x => x.TargetRoomId, mapping.TargetRoomId),
+                Builders<RoomMigrationMapping>.Filter.Eq(x => x.SenderName, mapping.SenderName)
+            );
+            var existing = await migrationMappings.Find(existingFilter).FirstOrDefaultAsync();
+            if (existing is not null)
+            {
+                _logger.LogInformation("[MIGRATION] Mapping for {SenderName} already exists, skipping.", mapping.SenderName);
+                continue;
+            }
+
+            await migrationMappings.InsertOneAsync(mapping);
+        }
+
+        _logger.LogInformation("[MIGRATION] Inserted {Count} manual senderHash mappings for room {RoomId}.",
+            mappings.Count, targetRoomId);
     }
 
     internal static string[] SplitIntoWords(string content)
